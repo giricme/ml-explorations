@@ -1,0 +1,203 @@
+\documentclass{article}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{mathtools}
+
+\title{Dimension Analysis of Gradient Descent Updates}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+	This note summarizes some dimension (aka units) analysis of gradient descent update equations across many different flavors of optimization algorithms (viz. momentum, Adagrad, Adam etc.)
+\end{abstract}
+
+\section{Introduction}
+	Gradient descent algorithms are by far the most common way to optimize neural networks. Gradient descent minimizes an objective function {\itshape J($\theta$)} parametrized by model parameters {\itshape $\theta$ $\in$ $\mathbb{R}^{d}$} by updating parameters in the opposite direction of the gradient of the objective function {\itshape $\nabla$J$_{\theta}$($\theta$)} w.r.t. to the parameters.Or in other words we go downhill in the direction of slope of the objective function until we reach a valley.
+	
+	\begin{center}	{\itshape \begin{equation}	\theta = \theta - \eta \nabla_{\theta} J(\theta) \label{eq:vecupdate}	\end{equation}}	\end{center}
+	
+	where $\eta$ is calling the {\itshape learning rate}. Learning rate is a hyper-parameter that controls how much we are adjusting the parameters with respect the gradient of the objective function. Lower the value, slower we travel downhill. Typically $\eta$ is set to a constant, say a number like 0.9. Equation \ref{eq:vecupdate} is vectorized. For the sake of of unit analysis, let us treat $\eta$ as a vector in $\mathbb{R}^{d}$. Thinking in terms of learning rate per parameter makes it easier to reason about per parameter learning rates in algorithms like Adagrad later on. 
+
+	
+	So, for any specific model parameter $\theta_{i}$:
+	
+	\begin{center} \begin{equation}	\Delta \theta_{i} = \eta_{i} \frac{\partial J(\theta)}{\partial \theta_{i}}	\label{eq:singleupdate} \end{equation} \end{center}
+	        									
+	 There are variants to gradient descent based on how much data we use to compute the gradient of the objective function. We make a trade-off between
+	 the accuracy of the parameter update and the time it takes to perform an update. In all variants above parameter update equations still hold.
+	 
+\subsection{Units of learning rate}
+	
+	When considering the parameter updates, $\Delta x$, being applied to x, units should match. That is, if parameter x had some hypothetical units, the changes to parameter x should be in those units as well. For example second order methods such as Newton’s method that use Hessian information do have the correct units for the parameter updates. 
+	
+	\begin{center} \begin{equation}	\Delta x =  \frac {\frac{\partial f}{\partial x}} {\frac{\partial^{2} f}{\partial x^{2}}}	\label{eq:newton} \end{equation} \end{center}
+	
+	Therefore in order for units to match in \ref{eq:singleupdate} learning rate for parameter $\theta_{i}$ cannot be a unitless constant but $\eta_{i}$ should have {\itshape units of $(\theta_{i})^{2}$} assuming objective function J is unitless. There are plenty of such examples of assigning units to constants so that units match, viz. gravitational constant, planck's constant etc.
+	
+	\begin{center} \begin{equation} \eta_{i} = \frac {\Delta \theta_{i}} {(\frac{\partial J(\theta)}{\partial \theta_{i}})} \propto (\theta_{i} units)(\frac{1}{1/(\theta_{i} units)}) = (\theta_{i} units)^{2} \label{eq:etaunits} \end{equation} \end{center}
+	
+	 
+\section{Gradient Descent Optimization Algorithms}
+	Gradient descent as described above has some challenges that need to be addressed to guarantee good convergence. Since this note is focussed on units of various parameter updates, we do not go into these challenges in detail here. For a complete overview of these see \cite{DBLP:journals/corr/Ruder16}.Techniques like momentum, adagrad, adadelta, adam etc. were invented to address several of these challenges. All these optimization algorithms modify how parameter updates are performed. We now perform unit analysis on all of these.
+	
+\subsection{Momentum} \label{momentum}
+	Momentum \cite{qian1999momentum} is a moving average of gradients. 
+	
+	\begin{center} 
+		\begin{equation} v_{t} = \gamma v_{t-1} +  \eta \nabla_{\theta} J(\theta)  \end{equation} 
+		\begin{equation} \theta = \theta - v_t \end{equation} 
+	\end{center}
+	
+	Typically $\gamma$ is set to something fixed like 0.9. Once again let us treat $\gamma$ as a vector in $\mathbb{R}^{d}$ so that we have a constant per parameter. For any specific model parameter $\theta_{i}$:
+	
+	\begin{center} 
+		\begin{equation} (v_{i})_{t} = \gamma_{i} (v_{i})_{t-1} +  \eta_{i} \frac {\partial J(\theta)} {\partial \theta_{i}}  \label{eq:momentumupdate} \end{equation} 
+		\begin{equation}(\Delta \theta_{i})_{t} = - (v_{i})_{t}  \end{equation}
+	\end{center}
+	
+	If we use units for $\eta_{i}$ from \ref{eq:etaunits} then units match in \ref{eq:momentumupdate} and it turns out that $\gamma_{i}$ is unitless and $(v_{i})_{t}$ has same units as $\theta_{i}$
+	
+\subsection{Nesterov Accelerated Gradient (NAG)}
+	From unit analysis stand point the anaylsis of NAG \cite{10029946121} is identical to \ref{momentum}. Reason being in NAG we calculate the gradient w.r.t. the approximate future position of our parameters.
+	
+	\begin{center} 
+		\begin{equation} v_{t} = \gamma v_{t-1} +  \eta \nabla_{\theta} J(\theta-\gamma v_{t_1})  \end{equation} 
+		\begin{equation} \theta = \theta - v_t \end{equation} 
+	\end{center}
+
+\subsection{Adagrad}
+	Adagrad \cite{journals/jmlr/DuchiHS11} adapts the learning rate to the parameters, performing larger updates for infrequent and smaller updates for frequent parameters. Let $(g_i)_{t}$ be gradient of objective function w.r.t to parameter i at time t and $(G_{}i)_{t}$ be the sum of squares of the gradient of objective function w.r.t to parameter i up to time t. Adagrad parameter update rule is:
+	
+	\begin{center} 
+		\begin{equation} g_{t,i} =  (\frac {\partial J(\theta)} {\partial \theta_{i}})_{t}   \end{equation}  
+		\begin{equation} (\Delta \theta_{i})_{t} = \eta_{i} \frac {(g_i)_{t}} {\sqrt{(G_{}i)_{t} + \epsilon}} 	\label{eq:adagradupdate} \end{equation}
+    \end{center}	 
+	
+	Using units for $\eta_{i}$ from \ref{eq:etaunits} we see in \ref{eq:adagradupdate} units do not match.
+	
+	 \begin{center} 
+	 	\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+	 	\begin{equation} 
+	 	\begin{split}
+	 		\eta_{i} \frac {(g_i)_{t}} {\sqrt{(G_{}i)_{t} + \epsilon}} \propto \\
+	 		(\theta_{i} units)^{2} (\frac{gradient_{i} units}{\sqrt{(gradient_{i} units)^{2}}}) \\
+	 		= (\theta_{i} units)^{2} 
+	 	\end{split}
+	 	\end{equation}
+	 \end{center}
+
+\subsection{Adadelta}
+	Adadelta \cite{DBLP:journals/corr/abs-1212-5701} is an extension of Adagrad that seeks to address the problems of monotonically decreasing gradient updates over time. It replaces $(G_{i})_{t}$, the sum of squares of the gradient of objective function w.r.t to parameter i up to time t, with a window of accumulated gradients for some window $w$. Authors note the unit discrepancy in the usual gradient descent update equations. To fix this they define an exponentially decaying average, of both squared gradients and squared parameter updates, and note that the ratio of these two serves as the learning rate. Update equation for Adadelta has no learning rate parameter and the units match.
+	
+	\begin{center} 
+		\begin{equation}  (\Delta \theta_{i})_{t} = - \frac{RMS(\Delta \theta_{i})_{t-1} }{RMS(g_i)_{t}} (g_i)_{t} \end{equation}   
+	\end{center}
+
+	 \begin{center} 
+		\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+		\begin{equation} \frac{RMS(\Delta \theta_{i})_{t-1} }{RMS(g_i)_{t}} (g_i)_{t} \propto \frac{\sqrt{(\theta_{i} units)^{2}}} {\sqrt{(gradient_{i} units)^{2}}} (gradient_{i} units) = (\theta_{i} units) \end{equation}
+	\end{center}
+
+\subsection{RMSProp}
+	RMSProp$^{1}$ \footnotetext[1]{\url{https://www.cs.toronto.edu/~tijmen/csc321/slides/lecture_slides_lec6.pdf}} also tries to address the problem of Adagrad's radically diminishing learning rates by dividing the learning rate by an exponentially decaying average of squared gradients over a window. So the update equation is:
+	
+	\begin{center} 
+		\begin{equation} \Delta (\theta_{i})_{t+1} =  - \eta_{i} \frac{(g_i)_{t}}{RMS(g_i)_{t}} 	\label{eq:rmspropupdate} \end{equation}
+	\end{center}
+
+   Using units for $\eta_{i}$ from \ref{eq:etaunits} we see in \ref{eq:rmspropupdate} units do not match.
+   
+	 \begin{center} 
+		\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+		\begin{equation} \eta_{i} \frac {(g_i)_{t}} {RMS(g_i)_{t}} \propto (\theta_{i} units)^{2} (\frac{gradient_{i} units}{(gradient_{i} units)}) \propto (\theta_{i} units)^{2} \end{equation}
+	\end{center}   
+
+\subsection{Adam}
+	Adaptive Moment Estimation (Adam) \cite{adam} can be thought of as combining both Adadelta and momentum. It stores an exponentially decaying average of past squared gradients like Adadelta and RMSprop, and also keeps an exponentially decaying average of past gradients similar to momentum. Let $(g_i)_{t}$ be gradient of objective function w.r.t to parameter i at time t. Update equations are:
+	
+	\begin{center} 
+		\begin{equation} (m_{i})_{t} = \beta_{1} (m_{i})_{t-1} + (1 - \beta_{1}) (g_i)_{t}  \end{equation}
+		\begin{equation} (v_{i})_{t} = \beta_{2} (v_{i})_{t-1} + (1 - \beta_{2}) (g_i)^{2}_{t}  \end{equation}
+	\end{center}
+
+	$m_{t}$ and $v_{t}$ are estimates of the first moment (the mean) and the second moment (the uncentered variance) of the gradients respectively. At the start of training these parmeters are biased towards zero. Adam counteracts this by doing bias correction like so:
+
+	\begin{center} 
+		\begin{equation} (\hat{m}_{i})_{t} = \frac{(m_{i})_{t}}{(1 - \beta_{1}^{t})}  \end{equation}
+		\begin{equation} (\hat{v}_{i})_{t} = \frac{(v_{i})_{t}}{(1 - \beta_{2}^{t})}  \end{equation}
+    \end{center}
+	
+	where $\beta_{1}^{t})$ and $\beta_{2}^{t}$ are $\beta_{1}$ and $\beta_{2}$ to the power t. Matching units in above equations, we see that $\beta_{1}, \beta_{2}$ are unitless, $(m_{i})_{t}$ has units of $gradient_{i}$ and $(v_{i})_{t}$ has the units of $gradient_{i}^{2}$
+	
+	These bias corrected versions are used in parameter update like so:
+	
+	\begin{center} 
+		\begin{equation} \Delta (\theta_{i})_{t+1} =  - \eta_{i} \frac{(\hat{m}_{i})_{t}}{\sqrt{(\hat{v}_{i})_{t}} + \epsilon} 	\label{eq:adamupdate} \end{equation}
+	\end{center}
+
+	Using units for $\eta_{i}$ from \ref{eq:etaunits} and analyzing units, we find that units do not match.
+	
+	 \begin{center} 
+		\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+		\begin{equation}  
+		\begin{split}
+		    \eta_{i} \frac{(\hat{m}_{i})_{t}}{\sqrt{(\hat{v}_{i})_{t}} + \epsilon} \propto \\
+         	(\theta_{i} units)^{2} (\frac{m_{i} units}{\sqrt{v_{i} units}}) = (\theta_{i} units)^{2} (\frac{gradient_{i} units}{\sqrt{(gradient_{i} units)^{2}}}) = (\theta_{i} units)^{2} 
+        \end{split}
+		\end{equation}
+	\end{center}
+	
+\subsection{Adamax}
+	Adamax \cite{adam} replaces the $l_{2}$ norm in $(v_{i})_{t}$ calculations with $l^{\infty}$ norm. We use $(u_{i})_{t}$ to represent this infinity norm-constrained $(v_{i})_{t}$ 
+	
+	\begin{center} 
+		\begin{equation} (u_{i})_{t} = \beta^{\infty}_{2} (u_{i})_{t-1} + (1 - \beta^{\infty}_{2}) |(g_i)_{t}|^{\infty}  = max(\beta_{2}(u_{i})_{t-1}, |(g_i)_{t}|)\end{equation}
+	\end{center}
+	
+	Update equations are revised with $(u_{i})_{t}$ like so:
+	
+	\begin{center} 
+		\begin{equation} \Delta (\theta_{i})_{t+1} =  - \eta_{i} \frac{(\hat{m}_{i})_{t}}{(u_{i})_{t}} 	\label{eq:adamax} \end{equation}
+	\end{center}	
+
+	Using units for $\eta_{i}$ from \ref{eq:etaunits}  and analyzing units, we find that units do not match. Recall $\beta_{1}, \beta_{2}$ are unitless
+
+	\begin{center} 
+		\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+		\begin{equation}  \eta_{i} \frac{(\hat{m}_{i})_{t}}{(u_{i})_{t}} \propto (\theta_{i} units)^{2} (\frac{m_{i} units}{u_{i} units}) = (\theta_{i} units)^{2} (\frac{gradient_{i} units}{gradient_{i} units}) = (\theta_{i} units)^{2} \end{equation}
+	\end{center}
+
+\subsection{Nadam}
+	Nadam \cite{dozat2016incorporating} combines Adam with Nesterov accelerated gradient (NAG) as later is superior to vanilla momentum. However as far as unit analysis goes it is identical to Adam. The Nadam update rule is:
+	
+	\begin{center} 
+		\begin{equation} \Delta (\theta_{i})_{t+1} =  - \eta_{i} \frac{1}{\sqrt{(\hat{v}_{i})_{t}} + \epsilon} (\beta_{1}(\hat{m}_{i})_{t} + \frac{(1 - \beta_{1})(g_{i})_{t}}{(1 - \beta_{1}^{t})})	\label{eq:nadamupdate} \end{equation}
+	\end{center}
+
+	Using units for $\eta_{i}$ from \ref{eq:etaunits}  and analyzing units, we find that units do not match. Recall $\beta_{1}, \beta_{2}$ are unitless
+	
+	\begin{center} 
+		\begin{equation}  \Delta \theta_{i} \propto \theta_{i} units \end{equation}  
+		\begin{equation}  
+		\begin{split}
+				\eta_{i} \frac{1}{\sqrt{(\hat{v}_{i})_{t}} + \epsilon} (\beta_{1}(\hat{m}_{i})_{t} + \frac{(1 - \beta_{1})(g_{i})_{t}}{(1 - \beta_{1}^{t})}) \propto \\
+				(\theta_{i} units)^{2} (\frac{gradient_{i} units}{gradient_{i} units}) = (\theta_{i} units)^{2} 
+		\end{split} 
+		\end{equation}
+	\end{center}
+   
+\subsection{AdamW}
+	Most libraries that implememt Adam also perform $L_{2}$ regularization (frequently referred to as weight decay since for SGD they are equivalent, see \cite{DBLP:journals/corr/abs-1711-05101} However the equivalence does not hold for adaptive gradient methods. Therefore [3] proposes Adam coupled with weight decay (AdamW). Modifed AdamW update equation for a regularization factor $\lambda$ is:
+	
+	\begin{center} 
+		\begin{equation} \Delta (\theta_{i})_{t+1} =  - \eta_{i} \frac{(\hat{m}_{i})_{t}}{\sqrt{(\hat{v}_{i})_{t}} + \epsilon} + \lambda (\theta_{i})_{t} 	\label{eq:adamwupdate} \end{equation}
+	\end{center}
+
+	Using units for $\eta_{i}$ from \ref{eq:etaunits}  and analyzing units, we find that units do not match.
+
+\bibliographystyle{unsrt}
+\bibliography{units}
+
+\end{document}
